@@ -1,0 +1,9 @@
+*.o
+*.exe
+*.out
+doc/html/
+doc/latex/
+doc/man/
+telemac-info
+telemac-parse
+telemac-vtu
