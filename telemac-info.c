@@ -128,8 +128,16 @@ int main (int argc, char** argv) {
 	} else {
 		float **data = NULL;
 		data = get_telemac_data(&rfs, 0, verbose);
+		if (data == NULL) {
+			fprintf(stderr, "Error reading initial timestep data - NULL returned by get_telemac_data\n");
+			return EXIT_FAILURE;
+		}
 		free_telemac_data(&rfs, data);
 		data = get_telemac_data(&rfs, results.nt-1, verbose);
+		if (data == NULL) {
+			fprintf(stderr, "Error reading initial timestep data - NULL returned by get_telemac_data\n");
+			return EXIT_FAILURE;
+		}
 		free_telemac_data(&rfs, data);
 		printf("\t%d timesteps\n", results.nt);
 		printf("\tSimulation start: t = %+f\n", results.timestamp[0]);
