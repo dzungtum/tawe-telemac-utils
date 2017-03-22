@@ -63,11 +63,13 @@ int main(int argc, char **argv) {
 	int v = 2;
 	int w = 3;
 	int printfreq = 1;
+	int ts = -1;
 
-	char *usage =  "Usage: %s [-z Z] [-u U] [-v V] [-w W] [-f n] [-c] [-o output_path] <results file>\n"
+	char *usage =  "Usage: %s [-z Z] [-u U] [-v V] [-w W] [-t T|-f n] [-c] [-o output_path] <results file>\n"
 		"\t-c\tVerbose output\n"
 		"\t-F\tForce continuation on certain errors\n"
 		"\t-f\tExport every n^th timestep\n"
+		"\t-t\tExport single timestep T\n"
 		"\t-z\t|\n"
 		"\t-u\t|\n"
 		"\t-v\t} Specify index for Z (height) and velocity components (u,v,w)\n"
@@ -77,7 +79,7 @@ int main(int argc, char **argv) {
 
 	int go = 0;
 	int oplength = -1;
-	while ((go = getopt (argc, argv, "u:v:w:z:f:o:cF")) != -1) {
+	while ((go = getopt (argc, argv, "u:v:w:z:f:o:t:cF")) != -1) {
 		switch(go) {
 			case 'z':
 				z = atoi(optarg);
@@ -97,6 +99,9 @@ int main(int argc, char **argv) {
 			case 'F':
 				force = 1;
 				break;
+			case 't':
+				ts = atoi(optarg);
+				break;
 			case 'f':
 				printfreq = atoi(optarg);
 				if (printfreq <= 0) {
@@ -113,8 +118,8 @@ int main(int argc, char **argv) {
 				}
 				break;
 			case '?':
-				if (optopt == 'f') {
-					fprintf(stderr, "The -f option requires a (positive, integer) value\n");
+				if (optopt == 'f' || optopt == 't') {
+					fprintf(stderr, "The -%c option requires a (positive, integer) value\n", optopt);
 					return EXIT_FAILURE;
 				} else {
 					fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -131,6 +136,12 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	} else {
 		filename = argv[optind];
+	}
+
+	if (printfreq != 1 && ts >= 0) {
+		fprintf(stderr, "Single timestep and output frequency options are mutually exclusive.\n");
+		fprintf(stderr, usage, argv[0]);
+		return EXIT_FAILURE;
 	}
 
 	FILE *resfile = NULL;
@@ -155,7 +166,10 @@ int main(int argc, char **argv) {
 	}
 	telemac_data_t *mesh = &rfs.tmdat;
 
-	for (int t = 0; t < mesh->nt; t+=printfreq) {
+	int tStart = ts >= 0 ? ts : 0;
+	int tLimit = ts >= 0 ? ts + 1 : mesh->nt;
+
+	for (int t = tStart; t < tLimit; t+=printfreq) {
 		char *vtuFileName = NULL;
 		asprintf(&vtuFileName, "%s%s.t%d.vtu", outputpath, basename(filename), t);
 		wTSargs pt;
@@ -167,9 +181,17 @@ int main(int argc, char **argv) {
 		pt.v = v;
 		pt.w = w;
 		pt.verbose = verbose;
-		writeTimestep((void *) &pt);
+		if (writeTimestep((void *) &pt)) {
+			fprintf(stderr, "Unable to write results to %s\n", vtuFileName);
+			return EXIT_FAILURE;
+		}
 	}
 	//Done writing individual files, now write PVD file
+
+	if (ts >= 0) {
+		fprintf(stdout, "VTU file successfully written in %s\n", outputpath);
+		return EXIT_SUCCESS;
+	}
 
 	xmlTextWriterPtr pvdFile = NULL;
 	char *pvdFileName = NULL;
